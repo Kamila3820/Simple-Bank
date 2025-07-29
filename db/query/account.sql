@@ -29,8 +29,8 @@ RETURNING *;
 
 -- name: UpdateAccountBalance :one
 UPDATE accounts
-  set balance = balance + $2
-WHERE id = $1
+  set balance = balance + sqlc.arg(amount)
+WHERE id = sqlc.arg(id)
 RETURNING *;
 
 -- name: DeleteAccount :exec
