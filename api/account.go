@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"net/http"
 	db "simple-bank/db/sqlc"
 
@@ -8,13 +9,13 @@ import (
 )
 
 type createAccountParams struct {
-	Owner       string `json:"owner" binding:"required"`
-	Concurrency string `json:"concurrency" binding:"required, oneof=USD EUR THB"`
+	Owner    string `json:"owner" binding:"required"`
+	Currency string `json:"currency" binding:"required,oneof=USD EUR THB"`
 }
 
 func (s *Server) createAccount(ctx *gin.Context) {
 	var req createAccountParams
-	if err := ctx.ShouldBindJSON(req); err != nil {
+	if err := ctx.BindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
@@ -22,7 +23,7 @@ func (s *Server) createAccount(ctx *gin.Context) {
 	arg := db.CreateAccountParams{
 		Owner:    req.Owner,
 		Balance:  0,
-		Currency: req.Concurrency,
+		Currency: req.Currency,
 	}
 
 	account, err := s.store.CreateAccount(ctx, arg)
@@ -32,4 +33,29 @@ func (s *Server) createAccount(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, account)
+}
+
+type getAccountRequest struct {
+	ID int64 `uri:"id" binding:"required,min=1"`
+}
+
+func (s *Server) getAccountById(ctx *gin.Context) {
+	// id := ctx.Param("id")
+	var req getAccountRequest
+	if err := ctx.ShouldBindUri(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return
+	}
+
+	account, err := s.store.GetAccount(ctx, req.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, account)
 }
